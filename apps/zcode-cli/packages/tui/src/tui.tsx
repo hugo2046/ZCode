@@ -92,6 +92,8 @@ export async function runTuiWithRenderer(
     setActiveTuiThemeMode(initialThemeMode);
     renderer.setBackgroundColor(activeTuiTheme(initialThemeMode).background);
     appMounted = true;
+    // OpenTUI 每次 render 都创建新容器；切换前卸载启动页，释放其 Ctrl-C 监听器。
+    root.unmount();
     root.render(
       React.createElement(TuiApp, {
         onExit,
