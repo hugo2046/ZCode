@@ -4,6 +4,7 @@ import { getRuntimeInfo, type PresentationSurface } from "@zcode/core";
 import { color, formatJson, supportsColor } from "@zcode/core";
 import { getZCodeCopy, isUiLocale, type UiLocale } from "@zcode/i18n";
 import type { RunContext, GlobalOptions, GlobalOutputFormat } from "@zcode/shared-types";
+import { ZCODE_VERSION } from "@zcode/shared";
 import {
   applyCliRuntimeEnvSanitization,
   loadCliDotenv,
@@ -284,7 +285,9 @@ const runZCodeProtocolCommand = async (
       output: ctx.stdout,
       presentationSurface,
       prepareStorageOnly,
-      version,
+      // 协议应用身份使用产品版本，CLI 显示和遥测身份继续使用独立版本。
+      cliVersion: version,
+      version: ZCODE_VERSION,
     });
     return 0;
   } catch (error) {

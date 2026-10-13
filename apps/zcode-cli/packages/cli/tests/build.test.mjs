@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
+import { webcrypto } from "node:crypto";
 import { runInNewContext } from "node:vm";
 import { build } from "esbuild";
 import {
@@ -10,6 +11,7 @@ import {
   createZodDedupePlugin,
   readRootPackageVersion,
   resolveBuildAliases,
+  resolveCliBuildDefines,
   resolveBuildOptions,
   resolveBuildExternal,
 } from "../scripts/build.mjs";
@@ -304,4 +306,58 @@ test("request security subpath bundles through its edition entry", async () => {
       path.endsWith("shared/src/request-security-edition/index.ts"),
     ),
   );
+});
+
+
+test("built PAT client uses repository product version while retaining CLI version", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "zcode-product-version-"));
+  try {
+    const rootDirectory = join(directory, "apps", "zcode-cli");
+    await mkdir(rootDirectory, { recursive: true });
+    await writeFile(join(directory, "package.json"), JSON.stringify({ version: "7.8.9" }));
+    await writeFile(join(rootDirectory, "package.json"), JSON.stringify({ version: "0.99.1" }));
+    const repository = resolve(import.meta.dirname, "../../../../..");
+    const result = await build({
+      stdin: {
+        contents: `
+          import { ProjectAccessTokenClient } from ${JSON.stringify(join(repository, "packages/shared/src/project-access-token-client.ts"))};
+          import { ZCODE_VERSION } from ${JSON.stringify(join(repository, "packages/shared/src/version.ts"))};
+          import { ZCODE_ENV } from ${JSON.stringify(join(repository, "packages/shared/src/env.ts"))};
+          export async function capture() {
+            const now = Date.now();
+            let signedVersion;
+            const client = new ProjectAccessTokenClient({
+              now: () => now, random: () => 0,
+              request: async (url, init) => {
+                if (url.endsWith("/getCustomerInfo")) return {code: 200, data: {organizations: [{organizationId: "fixture-org", projects: [{projectId: "fixture-project"}]}]}};
+                if (url.endsWith("/api_keys")) return {code: 200, data: [{apiKey: "fixture-key-id", name: "zcode-api-key"}]};
+                signedVersion = JSON.parse(init.body).clientVersion;
+                return {code: 200, data: {enable: true, accessToken: "synthetic-token", tokenType: "Bearer", expiresIn: 3600, expiresAt: now / 1000 + 3600}};
+              },
+            });
+            await client.resolve({origin: "https://fixture.invalid", family: "bigmodel", loginToken: "synthetic-login", accountId: "fixture-account"});
+            return {cliVersion: __CLI_VERSION__, productVersion: ZCODE_VERSION, signedVersion, environment: ZCODE_ENV};
+          }
+        `,
+        resolveDir: repository,
+        sourcefile: "product-version-fixture.ts",
+        loader: "ts",
+      },
+      bundle: true,
+      write: false,
+      platform: "node",
+      format: "cjs",
+      logLevel: "silent",
+      define: await resolveCliBuildDefines({ rootDirectory, environment: "production" }),
+    });
+    const context = { module: { exports: {} }, crypto: webcrypto, TextEncoder, URL };
+    runInNewContext(result.outputFiles[0].text, context);
+    const values = await context.module.exports.capture();
+    assert.equal(values.cliVersion, "0.99.1");
+    assert.equal(values.productVersion, "7.8.9");
+    assert.equal(values.signedVersion, "7.8.9");
+    assert.equal(values.environment, "production");
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
 });

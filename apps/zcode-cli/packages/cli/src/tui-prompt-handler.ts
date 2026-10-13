@@ -4,7 +4,7 @@ import type { ZCodeAppOptions } from "@zcode/bootstrap";
 import { DEFAULT_LOCALE, type SupportedLocale } from "@zcode/i18n";
 import type { TuiRequestPermission } from "@zcode/tui";
 import type { GlobalOptions } from "@zcode/shared-types";
-import type { DynamicWorkflowMode } from "@zcode/shared";
+import { ZCODE_VERSION, type DynamicWorkflowMode } from "@zcode/shared";
 import { createCommandCenter, parseSlashCommand } from "./command-center.js";
 import type { CommandCenterApp } from "./command-center.js";
 import { resolveDisplayLocale } from "./locale.js";
@@ -177,7 +177,7 @@ export function createTuiSubmitPrompt(
         uiDetectedLocale,
         uiLocale: activeUiLocale,
         userConfigPath: deps.userConfigPath,
-        version,
+        version: ZCODE_VERSION,
       });
     } catch (error) {
       await runCliCleanupWithTimeout(async () => browserRuntime?.close(), cleanupTimeoutMs);

@@ -31,7 +31,7 @@ import {
   resolveWorkflowModeRuntimeConfig,
   WORKFLOW_DISABLED_NOTICE,
 } from "./workflow-mode.js";
-import type { DynamicWorkflowMode } from "@zcode/shared";
+import { ZCODE_VERSION, type DynamicWorkflowMode } from "@zcode/shared";
 import type { CommandCenterApp, SlashCommand } from "./command-center.js";
 import type {
   CliPermissionMode,
@@ -208,7 +208,7 @@ export const runPrompt = async (
     const appEnv = prepareTelemetry
       ? await prepareTelemetry(env, {
           cliVersion: version,
-          productVersion: env.ZCODE_APP_VERSION,
+          productVersion: env.ZCODE_APP_VERSION ?? ZCODE_VERSION,
         })
       : env;
     const startProviderRegistryRuntime =
@@ -232,7 +232,7 @@ export const runPrompt = async (
       deps.createProviderEndpointRoutingPort ??
       bootstrapModule?.createDefaultProviderEndpointRoutingPort;
     const providerEndpointRoutingPort = createProviderEndpointRoutingPort?.({
-      appVersion: version,
+      appVersion: ZCODE_VERSION,
       env,
       workingDirectory,
     });
@@ -267,7 +267,7 @@ export const runPrompt = async (
       sessionId,
       uiDetectedLocale: options.detectedLocale,
       uiLocale: options.locale,
-      version,
+      version: ZCODE_VERSION,
     });
     // 异步身份导入期间可能已收到退出信号；既有的 cleanup 尚拿不到这个 App。
     // 单独释放迟到实例，禁止继续提交，也不重启已结束的进程级清理。
