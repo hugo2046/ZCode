@@ -70,10 +70,7 @@ export function visibleSelectionItemWindow(
   const clampedSelectedIndex = clampIndex(selectedIndex, items.length);
   const visibleCount = Math.min(maxVisible, items.length);
   const maxStartIndex = items.length - visibleCount;
-  const startIndex = Math.min(
-    Math.max(0, clampedSelectedIndex - visibleCount + 1),
-    maxStartIndex,
-  );
+  const startIndex = Math.min(Math.max(0, clampedSelectedIndex - visibleCount + 1), maxStartIndex);
 
   return {
     items: items.slice(startIndex, startIndex + visibleCount),
@@ -208,24 +205,30 @@ function handleSelectionInputKey(
     return;
   }
   if (key.name === "backspace") {
-    setSelection((current) =>
-      current
-        ? { ...current, input: { ...input, value: removeLastCharacter(input.value) } }
-        : current,
-    );
+    updateSelectionInputValue(input.itemId, setSelection, removeLastCharacter);
     return;
   }
   if (key.name === "u" && key.ctrl) {
-    setSelection((current) => (current ? { ...current, input: { ...input, value: "" } } : current));
+    updateSelectionInputValue(input.itemId, setSelection, () => "");
     setStatus(input.clearStatus ?? DEFAULT_INPUT_CLEAR_STATUS);
     return;
   }
 
   const text = printableInputText(key);
   if (!text) return;
-  setSelection((current) =>
-    current ? { ...current, input: { ...input, value: `${input.value}${text}` } } : current,
-  );
+  updateSelectionInputValue(input.itemId, setSelection, (value) => `${value}${text}`);
+}
+
+export function updateSelectionInputValue(
+  itemId: string,
+  setSelection: React.Dispatch<React.SetStateAction<SelectionState | undefined>>,
+  updateValue: (value: string) => string,
+): void {
+  // 同一帧的多个按键/粘贴必须基于最新输入累加，不能复用 handler 捕获的旧值。
+  setSelection((current) => {
+    if (!current?.input || current.pending || current.input.itemId !== itemId) return current;
+    return { ...current, input: { ...current.input, value: updateValue(current.input.value) } };
+  });
 }
 
 function submitSelectedItem(

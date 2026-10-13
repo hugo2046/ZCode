@@ -160,6 +160,16 @@ hardcoded English.
 3. `Z.AI Coding Plan API Key`
 4. `BigModel Coding Plan API Key`
 
+The manual API Key input accepts ordinary typing and terminal bracketed paste.
+Paste appends decoded printable text to the current single-line input, strips
+terminal escape sequences and control characters, and never submits on a pasted
+newline. The key remains masked; Backspace deletes a character, Ctrl+U clears
+it, and Escape returns to setup choices. Re-entering starts with an empty input.
+Batched typing and consecutive paste events accumulate against the latest input
+value without losing earlier characters. Input updates commit before the next
+terminal event, so an explicit Enter in the same batch submits the latest value
+and cannot revive a key cleared with Ctrl+U. Only an explicit Enter on non-empty input submits the existing login command.
+
 All four paths select the corresponding built-in provider/model. Only manual
 Key setup persists model credentials; OAuth setup retains the login session and
 stable identity, then resolves a Project Access Token before each HTTP attempt.
