@@ -1,9 +1,10 @@
 import type { KeyEvent } from "@mbears/opentui-core";
 import type { TuiWorkflowExpansionControls } from "./app-workflow-controller.js";
-import { useKeyboard } from "@mbears/opentui-react";
+import { flushSync, useKeyboard } from "@mbears/opentui-react";
 import { useCallback, useRef } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { handleApprovalKey } from "./app-approval.js";
+import { useSelectionPaste } from "./app-selection-paste.js";
 import { handleSelectionKey } from "./app-input.js";
 import {
   CTRL_C_EXIT_PROMPT,
@@ -132,6 +133,7 @@ export function useTuiKeyboardControls({
 }: UseTuiKeyboardControlsOptions): void {
   const ctrlCExitGuardRef = useRef<CtrlCExitGuard>(createCtrlCExitGuard());
   const sidebarShortcutRef = useRef<SidebarShortcutState>(createSidebarShortcutState());
+  useSelectionPaste(readOnlyView || approvalQueue.length > 0 ? undefined : selection, setSelection);
 
   useKeyboard(
     useCallback(
@@ -177,8 +179,11 @@ export function useTuiKeyboardControls({
         if (selection) {
           resetCtrlCExitGuard(ctrlCExitGuardRef.current);
           consumeKey(key);
-          handleSelectionKey(key, selection, setSelection, setStatus, submitValue, () => {
-            abortControllerRef.current?.abort();
+          // 终端会同步分发同一批按键；下一条 Enter 必须读到本次输入/删除/清空后的状态。
+          flushSync(() => {
+            handleSelectionKey(key, selection, setSelection, setStatus, submitValue, () => {
+              abortControllerRef.current?.abort();
+            });
           });
           return;
         }
