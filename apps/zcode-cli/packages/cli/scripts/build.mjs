@@ -120,6 +120,26 @@ export const readRootPackageVersion = async ({ root = projectRoot } = {}) => {
   return packageJson.version;
 };
 
+// 修复：CLI workspace 版本只用于 CLI 身份；PAT 和应用元数据必须使用仓库产品版本。
+export const resolveCliBuildDefines = async ({
+  rootDirectory = projectRoot,
+  cliVersion,
+  environment,
+} = {}) => {
+  if (environment !== "test" && environment !== "production") {
+    throw new Error("CLI build environment must be test or production.");
+  }
+  const [resolvedCliVersion, productVersion] = await Promise.all([
+    cliVersion ?? readRootPackageVersion({ root: rootDirectory }),
+    readRootPackageVersion({ root: resolve(rootDirectory, "../..") }),
+  ]);
+  return {
+    __CLI_VERSION__: JSON.stringify(resolvedCliVersion),
+    __ZCODE_VERSION__: JSON.stringify(productVersion),
+    __ZCODE_ENV__: JSON.stringify(environment),
+  };
+};
+
 export const resolveBuildOptions = (args = [], env = process.env) => {
   const desktopAgent = args.includes(desktopAgentBuildFlag);
   const e2eCoverage = env.ZCODE_E2E_COVERAGE === "1";
@@ -222,7 +242,7 @@ export const buildCli = async ({
   const outfile = resolve(cliDirectory, "dist/zcode.cjs");
   const sourcemapFile = `${outfile}.map`;
 
-  await stageBuiltinProviderConfig({
+  const providerBuild = await stageBuiltinProviderConfig({
     root: resolve(rootDirectory, "../.."),
     directory: resolve(cliDirectory, "dist/provider"),
     env,
@@ -233,9 +253,11 @@ export const buildCli = async ({
       js: "#!/usr/bin/env node",
     },
     bundle: true,
-    define: {
-      __CLI_VERSION__: JSON.stringify(cliVersion),
-    },
+    define: await resolveCliBuildDefines({
+      rootDirectory,
+      cliVersion,
+      environment: providerBuild.environment,
+    }),
     entryPoints: [resolve(cliDirectory, "src/main.ts")],
     // Ink 7 and yoga-layout use top-level await, so the CJS CLI bundle loads the TUI
     // through Node's native dynamic import path instead of forcing esbuild to lower it.

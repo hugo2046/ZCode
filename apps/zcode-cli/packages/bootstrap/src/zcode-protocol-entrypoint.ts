@@ -9,6 +9,7 @@ import {
   type McpTelemetryTracker,
 } from "@zcode/adapters/mcp";
 import {
+  ZCODE_VERSION,
   zcodeProtocolNotifications,
   type ZCodeMcpResourceSample,
   type ZCodeMcpTelemetryEvent,
@@ -176,8 +177,9 @@ export async function runZCodeProtocolAgent(
       disposeLate: () => shutdownZCodeTelemetry(),
       create: () =>
         prepareZCodeTelemetryEnv(runtimeEnv, {
-          cliVersion: options.version,
-          productVersion: options.env?.ZCODE_APP_VERSION,
+          // 产品版本不能覆盖 CLI service.version；独立入口也要保留共享产品版本 fallback。
+          cliVersion: options.cliVersion,
+          productVersion: runtimeEnv.ZCODE_APP_VERSION || options.version || ZCODE_VERSION,
           runtimeSurface,
         }),
     });

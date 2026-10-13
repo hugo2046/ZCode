@@ -153,6 +153,21 @@ describe("ZCode Protocol telemetry lifecycle", () => {
     expect(telemetryMocks.shutdownPreparedModelTelemetry).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    [{ cliVersion: "0.16.9", appVersion: "3.15.1" }, "3.15.1"],
+    [{ cliVersion: "0.16.9" }, "0.0.0-dev"],
+    [{ cliVersion: "0.16.9", appVersion: "3.15.1", productVersion: "9.8.7" }, "9.8.7"],
+  ])(
+    "keeps CLI telemetry identity independent from product metadata %j",
+    async (identity, expectedProductVersion) => {
+      await runProtocolAgent(undefined, undefined, false, identity);
+      expect(telemetryMocks.prepareModelTelemetryEnv).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ cliVersion: "0.16.9", productVersion: expectedProductVersion }),
+      );
+    },
+  );
+
   it("OTLP Owner 关闭失败保持旁路", async () => {
     telemetryMocks.shutdownPreparedModelTelemetry.mockRejectedValueOnce(
       new Error("exporter shutdown failed"),
@@ -235,6 +250,7 @@ async function runProtocolAgent(
   runtimeSurface: "remote_workspace_host" | undefined,
   outputChunks?: string[],
   createSession = false,
+  identity?: { cliVersion?: string; appVersion?: string; productVersion?: string },
 ): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "zcode-protocol-telemetry-lifecycle-"));
   try {
@@ -250,7 +266,10 @@ async function runProtocolAgent(
       );
     else input.end();
     await runZCodeProtocolAgent({
+      cliVersion: identity?.cliVersion,
+      version: identity?.appVersion,
       env: {
+        ...(identity?.productVersion ? { ZCODE_APP_VERSION: identity.productVersion } : {}),
         ZCODE_LOG_DIR: join(root, "log"),
         ZCODE_SESSION_DB_PATH: join(root, "session.sqlite"),
         ZCODE_STORAGE_DIR: root,

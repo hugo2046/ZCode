@@ -9,6 +9,7 @@
 - 个人/团队/Standalone 查找专用 Key；不存在时创建。个人名称 zcode-api-key；团队名称 zcode-team-api-key，保留 keyType=2；创建显式 usageScene=1。查询不增加 usageScene 过滤。
 - 返回的 apiKey 是非 Secret 的 Key ID，作为签发路径参数。组织、项目和 Key ID 分别编码，不跨项目挑选 Key。
 - POST /api/biz/v1/organization/{org}/projects/{project}/api_keys/{id}/access_tokens，使用 Bearer 登录 JWT，body 包含 clientType=zcode 与真实 clientVersion。
+- Agent 构建从仓库根 package.json 注入产品版本 __ZCODE_VERSION__，并与 Built-in Provider 构建环境一致地注入 __ZCODE_ENV__。CLI workspace 版本 __CLI_VERSION__ 仅用于 CLI 显示、帮助和 CLI 遥测身份；PAT 签发、Provider 路由与 headless/TUI/protocol App 的应用版本使用共享 ZCODE_VERSION。完整发行不得把 0.0.0-dev 或独立 CLI 版本当作产品版本；未打包源码测试保留共享 fallback。
 - 所有原先使用 API Key 的业务接口可使用 Token；通过逐接口测试表复测，不继续把兼容性作为实施前置阻塞。
 - 新客户端只走 Token；没有旧 Key 回退。明确 enable=false、无可用 PAT 时签发失败或畸形响应时记录脱敏日志并失败；已有未过期 PAT 的提前刷新仅按下文的临时故障规则容错；省略 enable 时按默认开启处理，但仍严格校验 Token 和有效期。
 - Project Access Token 由平台签发，仍遵守官方版本的请求安全校验准入规则，不能因使用 Token 而跳过；用户手工 Key 的既有安全校验行为保留。
@@ -198,3 +199,8 @@ ID 仅随请求期鉴权材料传递，不写入模型静态配置、不添加�
 验收：个人/团队及 BigModel/Z.AI 返回 ID 与 PAT 配对；独立 CLI OAuth 返回 ID、手工登录无 ID；协议往返保留 ID；配置请求仅含真实 ID，模型请求仍含 PAT 且没有 ID Header；手工 Provider 的路由配置请求不泄露 Key，安全校验逻辑不再请求配置开关；换证/切换账号后的新请求使用对应 ID。
 
 本次验证：服务/Host 回归 76 项、CLI 专项 201 项、协议 ID 透传 1 项通过（共 278 项，含本地 HTTP 实际 Header 验证）。根 typecheck、lint、architecture 检查及 CLI contracts/adapters/bootstrap 独立类型检查通过。CLI 总入口缺少 turbo；三个包的完整 lint 有 50 个既有 max-lines 错误，变更文件排除该存量规则后通过。扩大执行时另有 3 个旧安全校验测试、2 个旧协议测试失败，已用 HEAD 测试/实现复现对应失败，不计入本次通过数。真实平台及 SSH 环境尚未联调；需使用包含 apiKeyId 私有协议的配套 Host/Server 与 Agent。
+
+Protocol bootstrap receives the product `version` and telemetry `cliVersion`
+separately. Product telemetry uses an explicit `ZCODE_APP_VERSION`, then the
+protocol product version, then shared `ZCODE_VERSION`; `service.version` retains
+the separately supplied CLI version.

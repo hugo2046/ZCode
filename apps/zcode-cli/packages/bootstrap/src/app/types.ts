@@ -838,6 +838,9 @@ export interface RunZCodeProtocolAgentOptions {
   output?: NodeJS.WritableStream;
   presentationSurface?: PresentationSurface;
   providerEndpointRoutingPort?: ProviderEndpointRoutingPort;
+  /** CLI 遥测身份，与产品应用版本分别传递。 */
+  cliVersion?: string;
+  /** 产品应用版本，用于协议和 Provider 元数据。 */
   version?: string;
 }
 

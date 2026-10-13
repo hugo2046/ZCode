@@ -18,6 +18,7 @@ import {
   ZCODE_CUA_PLUGIN_AUTHORITY_ENV_KEY,
   ZCODE_PLUGIN_ID_ENV_KEY,
   ZCODE_RUNTIME_ENV_KEY,
+  ZCODE_VERSION,
   ZCODE_TOOL_ENV_PASSTHROUGH_ENV_KEY,
   readZCodeToolEnvPassthroughEnv,
   resetCapturedZCodeCuaBrokerCredentialsForTest,
@@ -4781,7 +4782,7 @@ test("runs a single prompt without opening the TUI", async () => {
   assert.equal(ctx.stderr.output(), "");
 });
 
-test("passes the CLI version into app creation for prompt runs", async () => {
+test("passes the product version into app creation for prompt runs", async () => {
   const ctx = createContext(["--prompt", "hello version"]);
   let appVersion: string | undefined;
   const exitCode = await run(ctx, {
@@ -4806,7 +4807,7 @@ test("passes the CLI version into app creation for prompt runs", async () => {
   });
 
   assert.equal(exitCode, 0);
-  assert.equal(appVersion, "0.0.0");
+  assert.equal(appVersion, ZCODE_VERSION);
 });
 
 test("passes prompt attachments into the app API", async () => {
@@ -6536,4 +6537,47 @@ test("headless rollout-off diagnostics preserve the runtime feature-disabled rea
 
   assert.equal(exitCode, 0);
   assert.match(ctx.stderr.output(), /Workspace Hooks skipped: workspace_hooks_feature_disabled/);
+});
+
+
+test("keeps CLI display version separate from product metadata in TUI", async () => {
+  const base = createPromptDeps();
+  let appVersion: string | undefined;
+  let routingVersion: string | undefined;
+  const exitCode = await run(createContext(["tui"]), {
+    ...base,
+    env: {},
+    createZCodeApp: (options) => {
+      appVersion = options?.version;
+      return base.createZCodeApp!(options);
+    },
+    createProviderEndpointRoutingPort: (options) => {
+      routingVersion = options.appVersion;
+      return {} as never;
+    },
+    runTui: async (options) => {
+      assert.equal(options.version, "0.0.0");
+      await options.loadStartupOptions?.();
+      return 0;
+    },
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(appVersion, ZCODE_VERSION);
+  assert.equal(routingVersion, ZCODE_VERSION);
+});
+
+test("passes product and CLI versions separately to protocol runtime", async () => {
+  let appVersion: string | undefined;
+  let cliVersion: string | undefined;
+  const exitCode = await run(createContext(["app-server", "--stdio"]), {
+    env: {},
+    loadDotenv: () => ({ loaded: false, keys: [] }),
+    runZCodeProtocolAgent: async (options) => {
+      appVersion = options?.version;
+      cliVersion = options?.cliVersion;
+    },
+  });
+  assert.equal(exitCode, 0);
+  assert.equal(appVersion, ZCODE_VERSION);
+  assert.equal(cliVersion, "0.0.0");
 });
