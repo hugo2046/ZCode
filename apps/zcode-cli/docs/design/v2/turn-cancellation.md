@@ -45,6 +45,24 @@ TUI:
   non-`Ctrl-C` key, draft-clearing `Ctrl-C`, or confirmation timeout clears the
   pending exit.
 
+Startup owns its keyboard listener only while its screen is mounted. The
+startup-to-main transition must unmount the startup screen before rendering the
+main screen, so its immediate exit handler cannot bypass the main confirmation
+or draft-clearing rules. Ctrl-C during startup still closes with code 130;
+late runtime readiness after destruction must not mount another screen.
+
+```mermaid
+sequenceDiagram
+    participant R as TUI renderer lifecycle
+    participant S as Startup screen
+    participant M as Main screen
+    R->>S: Mount and paint
+    R->>R: Load runtime options
+    R->>S: Unmount and remove keyboard listener
+    R->>M: Mount with ready options
+    M->>M: Own draft clearing and exit confirmation
+```
+
 ZCode app-server:
 - `session/cancel` aborts the active prompt controller for that ZCode app-server session.
 - Repeated cancel notifications are idempotent.
